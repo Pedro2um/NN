@@ -11,6 +11,8 @@ import kagglehub
 import torch
 import numpy as np
 from tqdm import tqdm
+from sklearn.metrics import classification_report
+import pandas as pd
 
 DSL = True # se true, joga tudo na RAM usando joblib Parallel
 
@@ -102,7 +104,32 @@ if __name__ == '__main__':
 
         if val_loss[-1] <= min_val_loss:
             torch.save(model.state_dict(), 'model_checkpoint/model.pth')
-        
 
+    # Avaliação no conjunto de teste
+    model.eval()
+    all_preds = []
+    all_labels = []
+
+    with torch.no_grad():
+        for inputs, labels in tqdm(test_dataset, desc="Testando"):
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+
+            outputs = model(inputs)
+            preds = torch.argmax(outputs, dim=1)
+
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+
+   
+    target_names = test_data.classes
+    report_dict = classification_report(all_labels, all_preds, target_names=target_names, output_dict=True)
+    report_df = pd.DataFrame(report_dict).transpose()
+
+    
+    print(report_df)
+
+    
+    report_df.to_csv("classification_report.csv", index=True)
 
     
