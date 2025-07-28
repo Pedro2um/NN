@@ -39,4 +39,4 @@ class ChestXrayDataset(Dataset):
     if self._transforms:
       img = self._transforms(img)
 
-    return img, torch.tensor(label, dtype=torch.long)
+    return img, label

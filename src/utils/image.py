@@ -8,5 +8,5 @@ def load_img(path):
   # converte para um tensor do pytorch
   img = v2.functional.to_image(img)
   # garante que seja uma imagem de 8 bits reescalando os valores adequadamente
-  img = v2.functional.to_dtype(img, dtype=torch.uint8, scale=True) # Remove this line
+  img = v2.functional.to_dtype(img, dtype=torch.uint8, scale=True)
   return img # Return as PIL Image
