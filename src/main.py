@@ -5,26 +5,30 @@ from cnn import default_transform
 from torch.utils.data import DataLoader
 import os
 import pandas as pd
+from torchvision.datasets import ImageFolder
+import kagglehub
 
 if __name__ == '__main__':
 
-    train_file_name = 'train'
-    test_file_name = 'test'
+    ds_path = kagglehub.dataset_download("alsaniipe/chest-x-ray-image") + '/Data/'
+    train_dir= 'train/'
+    test_dir= 'test/'
+    train_ds_path = os.path.join(ds_path, train_dir)
+    test_ds_path = os.path.join(ds_path, test_dir)
+    train_data = ImageFolder(train_ds_path)
+    test_data = ImageFolder(test_ds_path)
 
-    ds_path = download_data_and_create_annotations('./', train_file_name, test_file_name)
+    # cache = False and n_jobs = 1 no colab
+    # cache = True and n_jobs = -1 no DSL
+    train_dataset = ChestXrayDataset(train_data, transforms=default_transform(), cache=False, n_jobs=1)
+    test_dataset = ChestXrayDataset(test_data, transforms=default_transform(), cache=False, n_jobs=1)
 
-    train_ds_path = os.path.join(ds_path, train_file_name)
-    test_ds_path = os.path.join(ds_path, test_file_name)
+    train_data = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=2)
+    test_dataset = DataLoader(test_dataset, batch_size=64, num_workers=2)
 
-    train_df = pd.read_csv(f'{train_file_name}.csv').to_numpy()
-    
-    test_df = pd.read_csv(f'{test_file_name}.csv').to_numpy()
-    # até aqui tudo certo
-
-    train_data = ChestXrayDataset(train_df, ds_path=train_ds_path, transforms=default_transform())
-    test_data = ChestXrayDataset(test_df, ds_path=test_ds_path, transforms=default_transform())
 
 
     for batch in train_data:
+
         print(batch)
         break
