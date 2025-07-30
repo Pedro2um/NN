@@ -4,6 +4,7 @@
 
 Este repositório contém uma implementação de Redes Neurais, com o objetivo de explorar e demonstrar os conceitos de aprendizado de máquina e inteligência artificial. O projeto é desenvolvido utilizando **Python** e bibliotecas populares como **NumPy**, **TensorFlow** e **PyTorch**.
 
+
 ## Funcionalidades
 
 * **Treinamento de modelos de redes neurais**: O repositório fornece código para a construção e treinamento de modelos de redes neurais, incluindo a implementação de camadas, funções de ativação, e otimização de modelos.
@@ -15,7 +16,7 @@ Este repositório contém uma implementação de Redes Neurais, com o objetivo d
 * **Python**: Linguagem de programação principal.
 * **NumPy**: Manipulação de arrays e cálculos numéricos.
 * **TensorFlow / PyTorch**: Bibliotecas para criação e treinamento de redes neurais.
-* **Matplotlib** (opcional): Para visualização de gráficos de desempenho.
+* **tensorboard**: Para visualização de gráficos de desempenho dos modelos ao longo do treinamento.
 
 ## Instalação
 
