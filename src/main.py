@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 import os
 import pandas as pd
 from torchvision.datasets import ImageFolder
+from torchvision.models import mobilenet_v3_large, MobileNet_V3_Large_Weights
 import kagglehub
 import torch
 import numpy as np
@@ -14,10 +15,36 @@ from tqdm import tqdm
 from sklearn.metrics import classification_report
 import pandas as pd
 
+from test import test_model
+from train import train_model
+
 DSL = True # se true, joga tudo na RAM usando joblib Parallel
+
+
+def run_model(model, model_name):
+    loss_module = torch.nn.CrossEntropyLoss()
+    
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+    if 'frozen' in model_name: 
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-3)# congela o extrator de features
+    
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+
+    train_model(train_data=train, model=model, loss_module=loss_module, optimizer=optimizer, epochs=120, early_stop=15, warmup=10, min_val_loss=1000000, model_name=model_name)
+    
+    preds, labels = test_model(model, test_dataset=test, target_names=test_data.classes)
+    target_names = test_data.classes
+    report_dict = classification_report(labels, preds, target_names=target_names, output_dict=True)
+    report_df = pd.DataFrame(report_dict).transpose()
+    print(report_df)
+    report_df.to_csv(f"classification_report_{model_name}.csv", index=True)
 
 if __name__ == '__main__':
 
+    # Dados e configuração de ambiente (se joga todas as imagens na RAM ou Não)
     ds_path = kagglehub.dataset_download("alsaniipe/chest-x-ray-image") + '/Data/'
     train_dir= 'train/'
     test_dir= 'test/'
@@ -26,110 +53,56 @@ if __name__ == '__main__':
     train_data = ImageFolder(train_ds_path)
     test_data = ImageFolder(test_ds_path)
 
-    # cache = False and n_jobs = 1 no colab
-    # cache = True and n_jobs = -1 no DSL
-
+   
+    # padrão para o colab
     cache = False
     n_jobs = 1
 
-    if DSL == True:
+    if DSL == True: # se estiver no DSL
         cache = True
         n_jobs = -1
 
-    train_dataset = ChestXrayDataset(train_data, transforms=default_transform(), cache=cache, n_jobs=n_jobs)
-    test_dataset = ChestXrayDataset(test_data, transforms=default_transform(), cache=cache, n_jobs=n_jobs)
-
-    train_data = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=2)
-    test_dataset = DataLoader(test_dataset, batch_size=64, num_workers=2)
-
-    model = default_cnn()
-    
-
-
-    if os.path.exists('model_checkpoint/model.pth'):
-        print('tem o modelo')
-        state_dict = torch.load('model_checkpoint/model.pth')
-        model.load_state_dict(state_dict)
 
     
-    loss_module = torch.nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model.to(device)
-
-    epochs = 120
-    min_val_loss = 1000000
-    cnt = 0
-    edging = 15 # early stoping
-    warmup = 10
-
-    # loop sobre dataset de treino
-    for epoch in tqdm(range(epochs)):
-        epoch_loss = []
-        val_loss = []
-        
-        # divide cada batch em treino e validação
-        for batch in train_data:
-            inputs, labels = batch
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-            sz = int(0.8 * len(inputs))
-            inputs_train, labels_train, inputs_val, val_labels  = inputs[:sz], labels[:sz], inputs[sz:], labels[sz:]
-            
-            ##########################################################################
-            #treino mini-batch
-            optimizer.zero_grad()
-           
-            outputs = model(inputs_train) 
-            loss = loss_module(outputs, labels_train.long())
-            loss.backward()
-            optimizer.step()
-            epoch_loss.append(loss.item())
-            ##########################################################################
-            # validação mini-batch
-            with torch.no_grad():
-                outputs = model(inputs_val)
-                loss = loss_module(outputs, val_labels.long())
-                val_loss.append(loss.item())
-                if loss.item() < min_val_loss: min_val_loss = loss.item()
-
-            print(f'epoch {epoch} train loss: {epoch_loss[-1]} val loss {val_loss[-1]}')
-
-        if epoch > warmup and loss.item() > min_val_loss: 
-            cnt+=1
-        
-        if epoch > warmup and cnt >= edging:
-            print('acabou')
-            break
-
-        if val_loss[-1] <= min_val_loss:
-            torch.save(model.state_dict(), 'model_checkpoint/model.pth')
-
-    # Avaliação no conjunto de teste
-    model.eval()
-    all_preds = []
-    all_labels = []
-
-    with torch.no_grad():
-        for inputs, labels in tqdm(test_dataset, desc="Testando"):
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-
-            outputs = model(inputs)
-            preds = torch.argmax(outputs, dim=1)
-
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
-
-   
-    target_names = test_data.classes
-    report_dict = classification_report(all_labels, all_preds, target_names=target_names, output_dict=True)
-    report_df = pd.DataFrame(report_dict).transpose()
-
+    train_dataset = ChestXrayDataset(data=train_data, 
+                                     transforms=default_transform(), 
+                                     cache=cache, 
+                                     n_jobs=n_jobs)
     
-    print(report_df)
+    test_dataset = ChestXrayDataset(data=test_data, 
+                                    transforms=default_transform(), 
+                                    cache=cache, 
+                                    n_jobs=n_jobs)
 
+    train = DataLoader(     dataset=train_dataset, 
+                            batch_size=64, 
+                            shuffle=True, 
+                            num_workers=2)
     
-    report_df.to_csv("classification_report.csv", index=True)
+    test = DataLoader(     dataset=test_dataset, 
+                           batch_size=64, 
+                           num_workers=2)
+
+
+    # CNN 1 - customizada
+    # Modelo e parâmetros de treinamento
+    model1 = default_cnn()
+
+    # CNN 2 - MobileNetV3-Large pré-treinada no ImageNet (fazer frozen do extrator de features)
+    model2 = mobilenet_v3_large(weights=MobileNet_V3_Large_Weights.IMAGENET1K_V1)
+    model2.classifier[3] = torch.nn.Linear(model2.classifier[3].in_features, len(train_data.classes))
+
+    # CNN 3 - MobileNetV3-Large pré-treinada no ImageNet (faze fine-tuning)
+    model3 = mobilenet_v3_large(weights=MobileNet_V3_Large_Weights.IMAGENET1K_V1)
+    model3.classifier[3] = torch.nn.Linear(model3.classifier[3].in_features, len(train_data.classes))
+
+
+    models = {'custom': model1, 'mobile_net_v3_large_frozen': model2, 'mobile_net_v3_large_fine-tuning': model3}
+
+    for model_name, model in models.items():
+        run_model(model=model, model_name=model_name)
+    
+ 
+    
 
     
