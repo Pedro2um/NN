@@ -6,7 +6,7 @@ import torch
 import os
 
 class ChestXrayDataset(Dataset):
-  def __init__(self, data, transforms, cache, n_jobs=-1):
+  def __init__(self, data, transforms=None, cache=False, n_jobs=-1):
     self._data = data
     self._transforms = transforms
     self._cache = cache

@@ -1,14 +1,7 @@
 
 from torchvision import transforms
 import torch.nn as nn
-
-def default_transform():
- return transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5], std=[0.5])
-])
+from torchvision.models import mobilenet_v3_large, MobileNet_V3_Large_Weights
 
 def default_cnn():
     return nn.Sequential(
@@ -25,3 +18,8 @@ def default_cnn():
         nn.ReLU(),
         nn.Linear(84, 3) 
     )
+
+def mobile_net(num_classes):
+    model = mobilenet_v3_large(weights=MobileNet_V3_Large_Weights.IMAGENET1K_V1)
+    model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
+    return model

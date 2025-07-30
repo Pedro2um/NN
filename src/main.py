@@ -1,27 +1,30 @@
 
-from utils.download import download_data_and_create_annotations
+from cnn import default_cnn, mobile_net
 from dataset import ChestXrayDataset
-from cnn import default_transform, default_cnn
+from transforms import test_transform, vannila_transform
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import os
 import pandas as pd
 from torchvision.datasets import ImageFolder
-from torchvision.models import mobilenet_v3_large, MobileNet_V3_Large_Weights
 import kagglehub
 import torch
-import numpy as np
-from tqdm import tqdm
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 import pandas as pd
 
 from test import test_model
 from train import train_model
 
-DSL = True # se true, joga tudo na RAM usando joblib Parallel
+DSL = True # se true, joga tudo na RAM usando joblib Parallel, precisa de uns 50gb só pras imagens, com 60gb de RAM roda tranquilo ;)
 
 
 def run_model(model, model_name):
+
+    path = os.path.join("results", f"{model_name}")
+    if os.path.exists(path) == False:
+        os.makedirs(path)
+
+
     loss_module = torch.nn.CrossEntropyLoss()
     
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
@@ -37,10 +40,14 @@ def run_model(model, model_name):
     
     preds, labels = test_model(model, test_dataset=test, target_names=test_data.classes)
     target_names = test_data.classes
+
     report_dict = classification_report(labels, preds, target_names=target_names, output_dict=True)
     report_df = pd.DataFrame(report_dict).transpose()
-    print(report_df)
-    report_df.to_csv(f"classification_report_{model_name}.csv", index=True)
+    report_df.to_csv(os.path.join(path, f"classification_report_{model_name}.csv"), index=True)
+
+    cm = confusion_matrix(labels, preds)
+    cm_df = pd.DataFrame(cm, index=target_names, columns=target_names)
+    cm_df.to_csv(os.path.join(path, f"confusion_matrix_{model_name}.csv"), index=True)
 
 if __name__ == '__main__':
 
@@ -63,14 +70,14 @@ if __name__ == '__main__':
         n_jobs = -1
 
 
-    
-    train_dataset = ChestXrayDataset(data=train_data, 
-                                     transforms=default_transform(), 
+    # somente resize
+    train_dataset = ChestXrayDataset(data=train_data,
+                                     transforms=vannila_transform(),  
                                      cache=cache, 
                                      n_jobs=n_jobs)
     
     test_dataset = ChestXrayDataset(data=test_data, 
-                                    transforms=default_transform(), 
+                                    transforms=test_transform(), 
                                     cache=cache, 
                                     n_jobs=n_jobs)
 
@@ -85,18 +92,12 @@ if __name__ == '__main__':
 
 
     # CNN 1 - customizada
-    # Modelo e parâmetros de treinamento
     model1 = default_cnn()
-
     # CNN 2 - MobileNetV3-Large pré-treinada no ImageNet (fazer frozen do extrator de features)
-    model2 = mobilenet_v3_large(weights=MobileNet_V3_Large_Weights.IMAGENET1K_V1)
-    model2.classifier[3] = torch.nn.Linear(model2.classifier[3].in_features, len(train_data.classes))
-
+    model2 = mobile_net(len(train_data.classes))
     # CNN 3 - MobileNetV3-Large pré-treinada no ImageNet (faze fine-tuning)
-    model3 = mobilenet_v3_large(weights=MobileNet_V3_Large_Weights.IMAGENET1K_V1)
-    model3.classifier[3] = torch.nn.Linear(model3.classifier[3].in_features, len(train_data.classes))
-
-
+    model3 = mobile_net(len(train_data.classes))
+    
     models = {'custom': model1, 'mobile_net_v3_large_frozen': model2, 'mobile_net_v3_large_fine-tuning': model3}
 
     for model_name, model in models.items():
