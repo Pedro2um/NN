@@ -48,7 +48,6 @@ pip install -r requirements.txt
 ### 3. Executando o código
 
 OBSERVAÇÃO: caso não tenha 60gb de RAM disponível, vc DEVE trocar o valor lógico da variável "DSL" para "False" no script "main.py".
-Para rodar os exemplos de treinamento e testes, basta executar os scripts Python:
 
 ```bash
 python src/main.py  # para gerar todos os resultados
