@@ -57,7 +57,3 @@ python src/main.py  # para gerar todos os resultados
 tensorboard --logdir runs/  # para gerar todas as curvas de aprendizado, acesse o endereço do localhost apresentado no terminal para visualizar o dashbord
 ```
 
-## Licença
-
-Este projeto está licenciado sob a [MIT License](LICENSE).
-
